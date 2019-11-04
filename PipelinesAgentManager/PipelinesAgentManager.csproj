@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <PackageId>PipelinesAgentManager</PackageId>
+    <Version>0.0.1</Version>
+    <Authors>g3rv4</Authors>
+    <PackageLicenseFile>LICENSE.md</PackageLicenseFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Jil" Version="2.17.0" />
+    <None Include="../LICENSE.md" Pack="true" PackagePath="$(PackageLicenseFile)"/>
+  </ItemGroup>
+
+</Project>
