@@ -2,7 +2,8 @@ using System;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Threading.Tasks;
-using PipelinesAgentManager.Models;
+using Jil;
+using PipelinesAgentManager.Models.Terraform;
 
 namespace PipelinesAgentManager.Helpers
 {
@@ -33,16 +34,18 @@ namespace PipelinesAgentManager.Helpers
             }
         }
 
-        public static async Task<string> CreateRunAsync(string workspaceId, string message, bool isDestroy)
+        public static async Task<Run> CreateRunAsync(string workspaceId, string message, bool isDestroy)
         {
-            var tRequest = TerraformRunRequest.Create(workspaceId, message, isDestroy);
+            var tRequest = CreateRunRequest.Create(workspaceId, message, isDestroy);
             var json = Serialize(tRequest);
 
             var content = new StringContent(json);
             content.Headers.ContentType = new MediaTypeHeaderValue("application/vnd.api+json");
             var result = await HttpClient.PostAsync("runs", content);
             result.EnsureSuccessStatusCode();
-            return await result.Content.ReadAsStringAsync();
+
+            json = await result.Content.ReadAsStringAsync();
+            return Deserialize<Run>(json);
         }
 
         public static async Task<string> ApplyRun(string runId)
@@ -55,7 +58,19 @@ namespace PipelinesAgentManager.Helpers
             return await result.Content.ReadAsStringAsync();
         }
 
+        internal static async Task<Run> GetRunAsync(string runId)
+        {
+            var result = await HttpClient.GetAsync("runs/" + runId);
+            result.EnsureSuccessStatusCode();
+
+            var json = await result.Content.ReadAsStringAsync();
+            return Deserialize<Run>(json);
+        }
+
         private static string Serialize<T>(T obj) =>
-            Jil.JSON.Serialize<T>(obj, Jil.Options.ISO8601CamelCase);
+            JSON.Serialize<T>(obj, Options.ISO8601CamelCase);
+
+        private static T Deserialize<T>(string json) =>
+            JSON.Deserialize<T>(json, Options.ISO8601CamelCase);
     }
 }

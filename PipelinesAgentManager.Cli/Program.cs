@@ -14,6 +14,9 @@ namespace PipelinesAgentManager.Cli
 
             [Option('w', "workspaceId", Required = true, HelpText = "Terraform Workspace ID to run")]
             public string TerraformWorkspaceId { get; set; }
+
+            [Option('m', "minutesToWait", Required = false, HelpText = "Max seconds to wait for Terraform to finish")]
+            public int? MinutesToWait { get; set; }
         }
 
         [Verb("destroy", HelpText = "Creates an environment if needed")]
@@ -73,6 +76,33 @@ namespace PipelinesAgentManager.Cli
         {
             var response = await Provisioner.EnsureThereIsAnAgentAsync(opts.PipelinesPoolId, opts.TerraformWorkspaceId, "Created from CLI");
             Console.WriteLine(response);
+
+            if (response.RunId.HasValue() && opts.MinutesToWait.HasValue)
+            {
+                Console.WriteLine("Waiting for environment creation...");
+                var started = DateTime.UtcNow;
+                while ((DateTime.UtcNow - started).TotalMinutes < opts.MinutesToWait.Value)
+                {
+                    var run = await Provisioner.GetTerraformRunAsync(response.RunId);
+                    Console.WriteLine("Status: " + run.Status);
+
+                    if (run.IsFinished)
+                    {
+                        Console.WriteLine("It has finished!");
+                        if (run.IsErrored)
+                        {
+                            Console.WriteLine("With errors :(");
+                        }
+
+                        break;
+                    }
+                    else
+                    {
+                        await Task.Delay(5000);
+                    }
+                }
+            }
+
             return 0;
         }
 

@@ -1,24 +1,24 @@
 using System.Runtime.Serialization;
 
-namespace PipelinesAgentManager.Models
+namespace PipelinesAgentManager.Models.Terraform
 {
-    internal class TerraformRunRequest
+    internal class CreateRunRequest
     {
-        public static TerraformRunRequest Create(string workspaceId, string message, bool isDestroy) =>
-            new TerraformRunRequest
+        public static CreateRunRequest Create(string workspaceId, string message, bool isDestroy) =>
+            new CreateRunRequest
             {
-                Data = new TerraformRunRequest.DataClass
+                Data = new CreateRunRequest.DataClass
                 {
-                    Attributes = new TerraformRunRequest.DataClass.AttributesClass
+                    Attributes = new CreateRunRequest.DataClass.AttributesClass
                     {
                         Message = message,
                         IsDestroy = isDestroy
                     },
-                    Relationships = new TerraformRunRequest.DataClass.RelationshipsClass
+                    Relationships = new CreateRunRequest.DataClass.RelationshipsClass
                     {
-                        Workspace = new TerraformRunRequest.DataClass.RelationshipsClass.WorkspaceClass
+                        Workspace = new CreateRunRequest.DataClass.RelationshipsClass.WorkspaceClass
                         {
-                            Data = new TerraformRunRequest.DataClass.RelationshipsClass.WorkspaceClass.DataClass
+                            Data = new CreateRunRequest.DataClass.RelationshipsClass.WorkspaceClass.DataClass
                             {
                                 Id = workspaceId
                             }

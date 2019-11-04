@@ -1,6 +1,7 @@
 using System;
 using System.Threading.Tasks;
 using PipelinesAgentManager.Helpers;
+using PipelinesAgentManager.Models;
 
 namespace PipelinesAgentManager
 {
@@ -14,34 +15,43 @@ namespace PipelinesAgentManager
             Initted = true;
         }
 
-        public static async Task<string> EnsureThereIsAnAgentAsync(int pipelinesPoolId, string terraformWorkspaceId, string message)
+        public static async Task<EnsureAgentResult> EnsureThereIsAnAgentAsync(int pipelinesPoolId, string terraformWorkspaceId, string message)
         {
             EnsureInitialization();
+            var result = new EnsureAgentResult();
 
-            var thereIsAnAgent = await PipelinesHelper.ThereIsARunningAgentAsync(pipelinesPoolId);
-            if (!thereIsAnAgent)
+            result.ThereWasAnAgent = await PipelinesHelper.ThereIsARunningAgentAsync(pipelinesPoolId);
+            if (!result.ThereWasAnAgent)
             {
-                return await TerraformHelper.CreateRunAsync(terraformWorkspaceId, message, isDestroy: false);
+                var tfResponse = await TerraformHelper.CreateRunAsync(terraformWorkspaceId, message, isDestroy: false);
+                result.RunId = tfResponse.Data.Id;
             }
-            return "No need!";
+
+            return result;
         }
 
-        public static async Task<string> DestroyIfNeededAsync(int pipelinesPoolId, string terraformWorkspaceId, int minutesWithoutBuilds, string message)
+        public static async Task<DestroyResult> DestroyIfNeededAsync(int pipelinesPoolId, string terraformWorkspaceId, int minutesWithoutBuilds, string message)
         {
             EnsureInitialization();
 
-            var minutes = await PipelinesHelper.GetMinutesSinceLastActivity(pipelinesPoolId);
-            if (!minutes.HasValue)
+            var result = new DestroyResult();
+            result.Minutes = await PipelinesHelper.GetMinutesSinceLastActivity(pipelinesPoolId);
+
+            if (result.ThereWasAnAgent && result.Minutes.Value >= minutesWithoutBuilds)
             {
-                return "No agent running";
+                var tfResponse = await TerraformHelper.CreateRunAsync(terraformWorkspaceId, message, isDestroy: true);
+                result.RunId = tfResponse.Data.Id;
             }
 
-            if (minutes.Value < minutesWithoutBuilds)
-            {
-                return $"Last run {minutes} minutes ago. {minutes} < {minutesWithoutBuilds}, I'm bailing";
-            }
+            return result;
+        }
 
-            return await TerraformHelper.CreateRunAsync(terraformWorkspaceId, message, isDestroy: true);
+        public static async Task<Run> GetTerraformRunAsync(string runId)
+        {
+            EnsureInitialization();
+
+            var run = await TerraformHelper.GetRunAsync(runId);
+            return new Run(run);
         }
 
         public static async Task<string> ApplyTerraformRunAsync(string runId)

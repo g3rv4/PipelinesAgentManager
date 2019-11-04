@@ -1,8 +1,8 @@
 using System;
 
-namespace PipelinesAgentManager.Models
+namespace PipelinesAgentManager.Models.Pipelines
 {
-    internal class PipelinesAgentsResponse
+    internal class AgentsResponse
     {
         public Agent[] Value { get; set; }
 

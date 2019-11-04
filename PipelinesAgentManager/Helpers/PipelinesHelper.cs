@@ -4,7 +4,7 @@ using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Threading.Tasks;
-using PipelinesAgentManager.Models;
+using PipelinesAgentManager.Models.Pipelines;
 
 namespace PipelinesAgentManager.Helpers
 {
@@ -43,7 +43,7 @@ namespace PipelinesAgentManager.Helpers
             response.EnsureSuccessStatusCode();
 
             var json = await response.Content.ReadAsStringAsync();
-            var serviceResponse = Deserialize<PipelinesAgentsResponse>(json);
+            var serviceResponse = Deserialize<AgentsResponse>(json);
             return serviceResponse.Value.Any(a => a.Status == "online");
         }
 
@@ -53,7 +53,7 @@ namespace PipelinesAgentManager.Helpers
             response.EnsureSuccessStatusCode();
 
             var json = await response.Content.ReadAsStringAsync();
-            var serviceResponse = Deserialize<PipelinesAgentsResponse>(json).Value;
+            var serviceResponse = Deserialize<AgentsResponse>(json).Value;
 
             var finishTimes = serviceResponse.Where(a => a.LastCompletedRequest != null)
                                              .Select(a => a.LastCompletedRequest.FinishTime);
