@@ -4,7 +4,7 @@
     <OutputType>Exe</OutputType>
     <TargetFramework>netcoreapp3.0</TargetFramework>
     <PackageId>PipelinesAgentManager.Cli</PackageId>
-    <Version>1.0.0</Version>
+    <Version>1.0.1</Version>
     <Authors>g3rv4</Authors>
     <PackageLicenseFile>LICENSE.md</PackageLicenseFile>
     <PackAsTool>true</PackAsTool>
@@ -13,7 +13,7 @@
 
   <ItemGroup>
     <PackageReference Include="CommandLineParser" Version="2.6.0" />
-    <PackageReference Include="PipelinesAgentManager" Version="1.0.0" />
+    <PackageReference Include="PipelinesAgentManager" Version="1.0.1" />
     <None Include="../LICENSE.md" Pack="true" PackagePath="$(PackageLicenseFile)"/>
   </ItemGroup>
 </Project>

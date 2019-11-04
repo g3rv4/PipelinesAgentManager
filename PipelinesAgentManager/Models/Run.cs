@@ -14,7 +14,7 @@ namespace PipelinesAgentManager.Models
         internal Run(PipelinesAgentManager.Models.Terraform.Run run)
         {
             Id = run.Data.Id;
-            if (!Enum.TryParse<RunStatus>(run.Data.Attributes.Status.Replace(" ", ""), ignoreCase: true, out var status))
+            if (!Enum.TryParse<RunStatus>(run.Data.Attributes.Status.Replace("_", ""), ignoreCase: true, out var status))
             {
                 throw new ArgumentException("Could not parse run status: " + run.Data.Attributes.Status);
             }

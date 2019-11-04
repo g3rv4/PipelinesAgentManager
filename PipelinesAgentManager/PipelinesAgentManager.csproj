@@ -3,7 +3,7 @@
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
     <PackageId>PipelinesAgentManager</PackageId>
-    <Version>1.0.0</Version>
+    <Version>1.0.1</Version>
     <Authors>g3rv4</Authors>
     <PackageLicenseFile>LICENSE.md</PackageLicenseFile>
   </PropertyGroup>
