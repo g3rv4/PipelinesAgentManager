@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Threading.Tasks;
@@ -48,7 +49,7 @@ namespace PipelinesAgentManager.Helpers
             return Deserialize<Run>(json);
         }
 
-        public static async Task<string> ApplyRun(string runId)
+        public static async Task<string> ApplyRunAsync(string runId)
         {
             var content = new StringContent("");
             content.Headers.ContentType = new MediaTypeHeaderValue("application/vnd.api+json");
@@ -56,6 +57,24 @@ namespace PipelinesAgentManager.Helpers
             var result = await HttpClient.PostAsync($"runs/{runId}/actions/apply", content);
             result.EnsureSuccessStatusCode();
             return await result.Content.ReadAsStringAsync();
+        }
+
+        public static async Task<Models.ApplyTerraformRunIfNeededResponse> ApplyRunIfNeededAsync(string workspaceId)
+        {
+            var result = await HttpClient.GetAsync($"workspaces/{workspaceId}/runs");
+            result.EnsureSuccessStatusCode();
+
+            var json = await result.Content.ReadAsStringAsync();
+            var runs = Deserialize<Runs>(json);
+
+            var res = new Models.ApplyTerraformRunIfNeededResponse();
+            foreach (var run in runs.Data.Where(r => r.Attributes.Actions.IsConfirmable))
+            {
+                await ApplyRunAsync(run.Id);
+                res.RunsApplied.Add(run.Id);
+            }
+
+            return res;
         }
 
         internal static async Task<Run> GetRunAsync(string runId)

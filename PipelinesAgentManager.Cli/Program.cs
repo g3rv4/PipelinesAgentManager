@@ -1,81 +1,209 @@
 ﻿using System;
+using System.IO;
+using System.Linq;
+using System.Text;
 using System.Threading.Tasks;
 using CommandLine;
+using Jil;
+using PipelinesAgentManager.Cli.Models;
 
 namespace PipelinesAgentManager.Cli
 {
     class Program
     {
-        [Verb("create", HelpText = "Creates an environment if needed")]
-        class CreateOptions
+        private const char PipelinesPoolIdShortName = 'p';
+        private const string PipelinesPoolIdLongName = "pool-id";
+        private const char TerraformWorkspaceIdShortName = 'w';
+        private const string TerraformWorkspaceIdLongName = "workspace-id";
+        private const char ConfigFileShortName = 'c';
+        private const string ConfigFileLongName = "config-file";
+
+
+        class OptionsWithFilename
         {
-            [Option('p', "poolId", Required = true, HelpText = "Azure Pipelines pool ID to check")]
+            [Option(ConfigFileShortName, ConfigFileLongName, Required = false, HelpText = "Path to a json config file")]
+            public string ConfigFile { get; set; }
+        }
+
+        [Verb("create", HelpText = "Creates an environment if needed")]
+        class CreateOptions : OptionsWithFilename
+        {
+            [Option(PipelinesPoolIdShortName, PipelinesPoolIdLongName, Required = true, HelpText = "Azure Pipelines pool ID to check")]
             public int PipelinesPoolId { get; set; }
 
-            [Option('w', "workspaceId", Required = true, HelpText = "Terraform Workspace ID to run")]
+            [Option(TerraformWorkspaceIdShortName, TerraformWorkspaceIdLongName, Required = true, HelpText = "Terraform Workspace ID to run")]
             public string TerraformWorkspaceId { get; set; }
 
-            [Option('m', "minutesToWait", Required = false, HelpText = "Max seconds to wait for Terraform to finish")]
+            [Option('m', "minutes-to-wait", Required = false, HelpText = "Max seconds to wait for Terraform to finish")]
             public int? MinutesToWait { get; set; }
         }
 
         [Verb("destroy", HelpText = "Creates an environment if needed")]
-        class DestroyOptions
+        class DestroyOptions : OptionsWithFilename
         {
-            [Option('p', "poolId", Required = true, HelpText = "Azure Pipelines pool ID to check")]
+            [Option(PipelinesPoolIdShortName, PipelinesPoolIdLongName, Required = true, HelpText = "Azure Pipelines pool ID to check")]
             public int PipelinesPoolId { get; set; }
 
-            [Option('w', "workspaceId", Required = true, HelpText = "Terraform Workspace ID to run")]
+            [Option(TerraformWorkspaceIdShortName, TerraformWorkspaceIdLongName, Required = true, HelpText = "Terraform Workspace ID to run")]
             public string TerraformWorkspaceId { get; set; }
 
-            [Option('m', "minutesWithoutBuilds", Required = false, Default = 40, HelpText = "Minutes without builds")]
+            [Option('m', "minutes-without-builds", Required = false, Default = 40, HelpText = "Minutes without builds")]
             public int MinutesWithoutBuilds { get; set; }
         }
 
         [Verb("apply", HelpText = "Applies a Terraform run")]
-        class ApplyOptions
+        class ApplyOptions : OptionsWithFilename
         {
-            [Option('r', "runId", Required = true, HelpText = "The run ID")]
+            [Option('r', "run-id", Required = true, HelpText = "The run ID")]
             public string RunId { get; set; }
+        }
+
+        [Verb("applyIfNeeded", HelpText = "Applies a terraform run if one is awaiting approval")]
+        class ApplyIfNeededOptions : OptionsWithFilename
+        {
+            [Option(TerraformWorkspaceIdShortName, TerraformWorkspaceIdLongName, Required = true, HelpText = "Terraform Workspace ID to check for runs to apply")]
+            public string TerraformWorkspaceId { get; set; }
         }
 
         static Task<int> Main(string[] args)
         {
-            Init();
-
-            return CommandLine.Parser.Default.ParseArguments<CreateOptions, DestroyOptions, ApplyOptions>(args)
+            args = InitAndTweakArgs(args);
+            return CommandLine.Parser.Default.ParseArguments<CreateOptions, DestroyOptions, ApplyOptions, ApplyIfNeededOptions>(args)
               .MapResult(
                 (CreateOptions opts) => Create(opts),
                 (DestroyOptions opts) => Destroy(opts),
                 (ApplyOptions opts) => Apply(opts),
+                (ApplyIfNeededOptions opts) => ApplyIfNeeded(opts),
                 errs => Task.FromResult(1));
         }
 
-        private static void Init()
+        private static string[] InitAndTweakArgs(string[] args)
         {
-            var terraformToken = Environment.GetEnvironmentVariable("TERRAFORM_TOKEN", EnvironmentVariableTarget.Process);
-            var pipelinesPAT = Environment.GetEnvironmentVariable("PIPELINES_PAT", EnvironmentVariableTarget.Process);
-            var pipelinesOrganization = Environment.GetEnvironmentVariable("PIPELINES_ORG", EnvironmentVariableTarget.Process);
-
-            if (terraformToken.IsNullOrEmpty() || pipelinesPAT.IsNullOrEmpty() || pipelinesOrganization.IsNullOrEmpty())
+            var position = Math.Max(Array.IndexOf(args, "-" + ConfigFileShortName), Array.IndexOf(args, "--" + ConfigFileLongName));
+            string configFile = null;
+            if (position != -1)
             {
-                throw new Exception("Define environment variables TERRAFORM_TOKEN, PIPELINES_PAT and PIPELINES_ORG");
+                configFile = args[position + 1];
             }
 
-            Provisioner.Init(terraformToken, pipelinesPAT, pipelinesOrganization);
+            var pathToFile = configFile ?? Path.Join(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".PipelinesAgentManager");
+
+            var configFromFileResult = Config.TryCreateFromFile(pathToFile, out var configFromFile);
+            var configFromEnv = Config.CreateFromEnvironment();
+            Config[] configsToUse;
+
+            if (configFile.HasValue())
+            {
+                // if there's a file specified, use only that
+                if (configFromFileResult != Config.CreateFromFileResult.Success)
+                {
+                    throw new Exception($"Could not load file {pathToFile}. Result: {configFromFileResult}");
+                }
+                if (!configFromFile.IsValid)
+                {
+                    throw new Exception("Config file has missing fields. Ensure the 3 are set.");
+                }
+
+                configsToUse = new[] { configFromFile };
+            }
+            else
+            {
+                // use the env vars first, and only the file as backup
+                configsToUse = new[] { configFromEnv, configFromFile };
+            }
+
+            string terraformToken = null, pipelinesPAT = null, pipelinesOrg = null, defaultWorkspaceId = null;
+            int? defaultPoolId = null;
+            foreach (var config in configsToUse)
+            {
+                terraformToken = terraformToken ?? config.TerraformToken;
+                pipelinesPAT = pipelinesPAT ?? config.PipelinesPAT;
+                pipelinesOrg = pipelinesOrg ?? config.PipelinesOrg;
+                defaultWorkspaceId = defaultWorkspaceId ?? config.DefaultWorkspace;
+                defaultPoolId = defaultPoolId ?? config.DefaultPoolId;
+            }
+
+            if (terraformToken.IsNullOrEmpty() || pipelinesPAT.IsNullOrEmpty() || pipelinesOrg.IsNullOrEmpty())
+            {
+                var sb = new StringBuilder("Could not retrieve values for: ");
+
+                void addToSb(string value, string name)
+                {
+                    if (value.IsNullOrEmpty())
+                    {
+                        sb.Append(name);
+                        sb.Append(", ");
+                    }
+                }
+
+                addToSb(terraformToken, nameof(terraformToken));
+                addToSb(pipelinesPAT, nameof(pipelinesPAT));
+                addToSb(pipelinesOrg, nameof(pipelinesOrg));
+
+                sb.Length -= 2;
+
+                throw new Exception(sb.ToString());
+            }
+
+            Provisioner.Init(terraformToken, pipelinesPAT, pipelinesOrg);
+
+            if (defaultWorkspaceId.HasValue() || defaultPoolId.HasValue)
+            {
+                var modifiedArgs = args.ToList();
+                var verbType = typeof(Program)
+                                    .GetNestedTypes(System.Reflection.BindingFlags.NonPublic)
+                                    .Where(t =>
+                                    {
+                                        var verbAttributes = t.GetCustomAttributes(typeof(VerbAttribute), false);
+                                        return verbAttributes.Length > 0 &&
+                                                verbAttributes[0] is VerbAttribute va &&
+                                                va.Name == args[0];
+                                    })
+                                    .FirstOrDefault();
+
+                if (verbType != null)
+                {
+                    var validOptions = verbType
+                                        .GetMembers()
+                                        .Where(m => m.IsDefined(typeof(OptionAttribute), false))
+                                        .Select(m => (m.GetCustomAttributes(typeof(OptionAttribute), false)[0] as OptionAttribute).ShortName)
+                                        .ToArray();
+
+                    if (defaultWorkspaceId.HasValue() &&
+                        validOptions.Contains(TerraformWorkspaceIdShortName.ToString()) &&
+                        !args.Contains("-" + TerraformWorkspaceIdShortName) &&
+                        !args.Contains("--" + TerraformWorkspaceIdLongName))
+                    {
+                        modifiedArgs.Add("-" + TerraformWorkspaceIdShortName);
+                        modifiedArgs.Add(defaultWorkspaceId);
+                    }
+
+                    if (defaultPoolId.HasValue &&
+                        validOptions.Contains(PipelinesPoolIdShortName.ToString()) &&
+                        !args.Contains("-" + PipelinesPoolIdShortName) &&
+                        !args.Contains("--" + PipelinesPoolIdLongName))
+                    {
+                        modifiedArgs.Add("-" + PipelinesPoolIdShortName);
+                        modifiedArgs.Add(defaultPoolId.ToString());
+                    }
+                }
+                args = modifiedArgs.ToArray();
+            }
+
+            return args;
         }
 
         private static async Task<int> Destroy(DestroyOptions opts)
         {
             var response = await Provisioner.DestroyIfNeededAsync(opts.PipelinesPoolId, opts.TerraformWorkspaceId, opts.MinutesWithoutBuilds, "Destroy from CLI");
-            Console.WriteLine(response);
+            Console.WriteLine(JSON.Serialize(response));
             return 0;
         }
 
         private static async Task<int> Create(CreateOptions opts)
         {
             var response = await Provisioner.EnsureThereIsAnAgentAsync(opts.PipelinesPoolId, opts.TerraformWorkspaceId, "Created from CLI");
-            Console.WriteLine(response);
+            Console.WriteLine(JSON.Serialize(response));
 
             if (response.RunId.HasValue() && opts.MinutesToWait.HasValue)
             {
@@ -110,6 +238,13 @@ namespace PipelinesAgentManager.Cli
         {
             var response = await Provisioner.ApplyTerraformRunAsync(opts.RunId);
             Console.WriteLine(response);
+            return 0;
+        }
+
+        private static async Task<int> ApplyIfNeeded(ApplyIfNeededOptions opts)
+        {
+            var response = await Provisioner.ApplyTerraformRunIfNeededAsync(opts.TerraformWorkspaceId);
+            Console.WriteLine(JSON.Serialize(response));
             return 0;
         }
     }

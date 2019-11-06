@@ -58,7 +58,14 @@ namespace PipelinesAgentManager
         {
             EnsureInitialization();
 
-            return await TerraformHelper.ApplyRun(runId);
+            return await TerraformHelper.ApplyRunAsync(runId);
+        }
+
+        public static async Task<ApplyTerraformRunIfNeededResponse> ApplyTerraformRunIfNeededAsync(string terraformWorkspaceId)
+        {
+            EnsureInitialization();
+
+            return await TerraformHelper.ApplyRunIfNeededAsync(terraformWorkspaceId);
         }
 
         private static void EnsureInitialization()
