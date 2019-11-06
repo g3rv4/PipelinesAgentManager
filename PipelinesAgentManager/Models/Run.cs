@@ -43,5 +43,6 @@ namespace PipelinesAgentManager.Models
         PlanErrored = 13,
         Discarded = 14,
         Canceled = 15,
+        PlannedAndFinished = 16,
     }
 }

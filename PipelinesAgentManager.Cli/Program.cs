@@ -79,6 +79,11 @@ namespace PipelinesAgentManager.Cli
 
         private static string[] InitAndTweakArgs(string[] args)
         {
+            if (args.Length == 0)
+            {
+                return args;
+            }
+
             var position = Math.Max(Array.IndexOf(args, "-" + ConfigFileShortName), Array.IndexOf(args, "--" + ConfigFileLongName));
             string configFile = null;
             if (position != -1)
