@@ -7,7 +7,7 @@ namespace PipelinesAgentManager.Models
         public string Id { get; set; }
         public RunStatus Status { get; set; }
         public bool IsFinished => Status >= RunStatus.Applied;
-        public bool IsErrored => Status == RunStatus.ApplyErrored || Status == RunStatus.PlanErrored;
+        public bool IsErrored => Status == RunStatus.Errored || Status == RunStatus.PolicySoftFailed;
 
         public Run() { }
 
@@ -25,24 +25,31 @@ namespace PipelinesAgentManager.Models
             Jil.JSON.Serialize(this);
     }
 
+    // check https://github.com/hashicorp/go-tfe/blob/master/run.go
     public enum RunStatus
     {
         Unknown = 0,
-        Pending = 1,
-        Planning = 2,
-        NeedsConfirmation = 3,
-        CostEstimating = 4,
-        CostEstimated = 5,
-        PolicyCheck = 6,
-        PolicyOverride = 7,
-        PolicyChecked = 8,
-        Applying = 9,
-        Applied = 10,
-        NoChanges = 11,
-        ApplyErrored = 12,
-        PlanErrored = 13,
-        Discarded = 14,
-        Canceled = 15,
-        PlannedAndFinished = 16,
+        Pending,
+        PlanQueued,
+        Planning,
+        Planned,
+        Confirmed,
+        CostEstimating,
+        CostEstimated,
+        PolicyChecking,
+        PolicyOverride,
+        PolicyChecked,
+        ApplyQueued,
+        Applying,
+
+        // finished states run here
+        Applied,
+        Discarded,
+        Canceled,
+        PlannedAndFinished,
+
+        // errors start here
+        Errored,
+        PolicySoftFailed,
     }
 }

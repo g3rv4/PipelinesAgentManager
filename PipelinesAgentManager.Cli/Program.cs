@@ -4,7 +4,6 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using CommandLine;
-using Jil;
 using PipelinesAgentManager.Cli.Models;
 
 namespace PipelinesAgentManager.Cli
@@ -201,14 +200,14 @@ namespace PipelinesAgentManager.Cli
         private static async Task<int> Destroy(DestroyOptions opts)
         {
             var response = await Provisioner.DestroyIfNeededAsync(opts.PipelinesPoolId, opts.TerraformWorkspaceId, opts.MinutesWithoutBuilds, "Destroy from CLI");
-            Console.WriteLine(JSON.Serialize(response));
+            Console.WriteLine(response);
             return 0;
         }
 
         private static async Task<int> Create(CreateOptions opts)
         {
             var response = await Provisioner.EnsureThereIsAnAgentAsync(opts.PipelinesPoolId, opts.TerraformWorkspaceId, "Created from CLI");
-            Console.WriteLine(JSON.Serialize(response));
+            Console.WriteLine(response);
 
             if (response.RunId.HasValue() && opts.MinutesToWait.HasValue)
             {
@@ -249,7 +248,7 @@ namespace PipelinesAgentManager.Cli
         private static async Task<int> ApplyIfNeeded(ApplyIfNeededOptions opts)
         {
             var response = await Provisioner.ApplyTerraformRunIfNeededAsync(opts.TerraformWorkspaceId);
-            Console.WriteLine(JSON.Serialize(response));
+            Console.WriteLine(response);
             return 0;
         }
     }
