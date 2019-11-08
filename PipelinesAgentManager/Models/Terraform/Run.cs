@@ -1,3 +1,4 @@
+using System;
 using System.Runtime.Serialization;
 
 namespace PipelinesAgentManager.Models.Terraform
@@ -12,7 +13,23 @@ namespace PipelinesAgentManager.Models.Terraform
 
             public class AttributesClass
             {
-                public string Status { get; set; }
+                private RunStatus? _Status { get; set; }
+                public RunStatus Status => _Status ?? (_Status = ParseStatus(StatusStr)).Value;
+
+                private static RunStatus ParseStatus(string rawStatus)
+                {
+                    if (!Enum.TryParse<RunStatus>(rawStatus.Replace("_", ""), ignoreCase: true, out var status))
+                    {
+                        throw new ArgumentException("Could not parse run status: " + rawStatus);
+                    }
+                    return status;
+                }
+
+                [DataMember(Name = "is-destroy")]
+                public bool IsDestroy { get; set; }
+
+                [DataMember(Name = "status")]
+                public string StatusStr { get; set; }
                 public ActionsClass Actions { get; set; }
 
                 public class ActionsClass

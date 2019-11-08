@@ -33,7 +33,7 @@ namespace PipelinesAgentManager.Cli
             [Option(TerraformWorkspaceIdShortName, TerraformWorkspaceIdLongName, Required = true, HelpText = "Terraform Workspace ID to run")]
             public string TerraformWorkspaceId { get; set; }
 
-            [Option('m', "minutes-to-wait", Required = false, HelpText = "Max seconds to wait for Terraform to finish")]
+            [Option('m', "minutes-to-wait", Required = false, HelpText = "Max minutes to wait for Terraform to finish")]
             public int? MinutesToWait { get; set; }
         }
 
@@ -218,10 +218,10 @@ namespace PipelinesAgentManager.Cli
                     var run = await Provisioner.GetTerraformRunAsync(response.RunId);
                     Console.WriteLine("Status: " + run.Status);
 
-                    if (run.IsFinished)
+                    if (run.Status.IsFinished())
                     {
                         Console.WriteLine("It has finished!");
-                        if (run.IsErrored)
+                        if (run.Status.IsErrored())
                         {
                             Console.WriteLine("With errors :(");
                         }

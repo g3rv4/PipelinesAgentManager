@@ -20,13 +20,15 @@ namespace PipelinesAgentManager
             EnsureInitialization();
             var result = new EnsureAgentResult();
 
+            result.ThereWasAnUnfinishedApply = await TerraformHelper.ThereIsAnUnfinishedRun(terraformWorkspaceId, isDestroy: false);
             result.ThereWasAnAgent = await PipelinesHelper.ThereIsARunningAgentAsync(pipelinesPoolId);
-            if (!result.ThereWasAnAgent)
+            if (result.ThereWasAnUnfinishedApply || result.ThereWasAnAgent)
             {
-                var tfResponse = await TerraformHelper.CreateRunAsync(terraformWorkspaceId, message, isDestroy: false);
-                result.RunId = tfResponse.Data.Id;
+                return result;
             }
 
+            var tfResponse = await TerraformHelper.CreateRunAsync(terraformWorkspaceId, message, isDestroy: false);
+            result.RunId = tfResponse.Data.Id;
             return result;
         }
 
@@ -35,14 +37,16 @@ namespace PipelinesAgentManager
             EnsureInitialization();
 
             var result = new DestroyResult();
-            result.Minutes = await PipelinesHelper.GetMinutesSinceLastActivity(pipelinesPoolId);
 
-            if (result.ThereWasAnAgent && result.Minutes.Value >= minutesWithoutBuilds)
+            result.ThereWasAnUnfinishedDestroy = await TerraformHelper.ThereIsAnUnfinishedRun(terraformWorkspaceId, isDestroy: true);
+            result.Minutes = await PipelinesHelper.GetMinutesSinceLastActivity(pipelinesPoolId);
+            if (result.ThereWasAnUnfinishedDestroy || !result.ThereWasAnAgent || result.Minutes.Value < minutesWithoutBuilds)
             {
-                var tfResponse = await TerraformHelper.CreateRunAsync(terraformWorkspaceId, message, isDestroy: true);
-                result.RunId = tfResponse.Data.Id;
+                return result;
             }
 
+            var tfResponse = await TerraformHelper.CreateRunAsync(terraformWorkspaceId, message, isDestroy: true);
+            result.RunId = tfResponse.Data.Id;
             return result;
         }
 

@@ -59,13 +59,18 @@ namespace PipelinesAgentManager.Helpers
             return await result.Content.ReadAsStringAsync();
         }
 
-        public static async Task<Models.ApplyTerraformRunIfNeededResponse> ApplyRunIfNeededAsync(string workspaceId)
+        private static async Task<Runs> GetRunsInWorkspace(string workspaceId)
         {
             var result = await HttpClient.GetAsync($"workspaces/{workspaceId}/runs");
             result.EnsureSuccessStatusCode();
 
             var json = await result.Content.ReadAsStringAsync();
-            var runs = Deserialize<Runs>(json);
+            return Deserialize<Runs>(json);
+        }
+
+        public static async Task<Models.ApplyTerraformRunIfNeededResponse> ApplyRunIfNeededAsync(string workspaceId)
+        {
+            var runs = await GetRunsInWorkspace(workspaceId);
 
             var res = new Models.ApplyTerraformRunIfNeededResponse();
             foreach (var run in runs.Data.Where(r => r.Attributes.Actions.IsConfirmable))
@@ -75,6 +80,12 @@ namespace PipelinesAgentManager.Helpers
             }
 
             return res;
+        }
+
+        public static async Task<bool> ThereIsAnUnfinishedRun(string workspaceId, bool isDestroy)
+        {
+            var runs = await GetRunsInWorkspace(workspaceId);
+            return runs.Data.Any(r => !r.Attributes.Status.IsFinished() && r.Attributes.IsDestroy == isDestroy);
         }
 
         internal static async Task<Run> GetRunAsync(string runId)
