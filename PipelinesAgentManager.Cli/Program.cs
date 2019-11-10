@@ -228,10 +228,19 @@ namespace PipelinesAgentManager.Cli
 
                         break;
                     }
-                    else
+                    await Task.Delay(5000);
+                }
+
+                // wait for Azure to report the agent as online
+                while ((DateTime.UtcNow - started).TotalMinutes < opts.MinutesToWait.Value)
+                {
+                    var isOnline = await Provisioner.ThereIsAPipelineAgentRunning(opts.PipelinesPoolId);
+                    Console.WriteLine("There is an agent online: " + isOnline);
+                    if (isOnline)
                     {
-                        await Task.Delay(5000);
+                        break;
                     }
+                    await Task.Delay(5000);
                 }
             }
 

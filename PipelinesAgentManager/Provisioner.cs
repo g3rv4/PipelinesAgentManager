@@ -72,6 +72,13 @@ namespace PipelinesAgentManager
             return await TerraformHelper.ApplyRunIfNeededAsync(terraformWorkspaceId);
         }
 
+        public static async Task<bool> ThereIsAPipelineAgentRunning(int pipelinesPoolId)
+        {
+            EnsureInitialization();
+
+            return await PipelinesHelper.ThereIsARunningAgentAsync(pipelinesPoolId);
+        }
+
         private static void EnsureInitialization()
         {
             if (!Initted)
