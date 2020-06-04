@@ -47,7 +47,7 @@ namespace PipelinesAgentManager.Helpers
             return serviceResponse.Value.Any(a => a.Status == "online");
         }
 
-        public static async Task<int?> GetMinutesSinceLastActivity(int poolId)
+        public static async Task<int> GetMinutesSinceLastActivity(int poolId)
         {
             var response = await HttpClient.GetAsync($"distributedtask/pools/{poolId}/agents?includeLastCompletedRequest=true");
             response.EnsureSuccessStatusCode();
@@ -61,8 +61,8 @@ namespace PipelinesAgentManager.Helpers
                                        .Concat(finishTimes);
 
             return dates.Any()
-                ? (int)(DateTime.UtcNow - dates.Max()).TotalMinutes
-                : (int?)null;
+                ? (int) (DateTime.UtcNow - dates.Max()).TotalMinutes
+                : int.MaxValue;
         }
 
         private static T Deserialize<T>(string json) =>

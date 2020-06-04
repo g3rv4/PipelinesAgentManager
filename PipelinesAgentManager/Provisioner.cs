@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using System.Threading.Tasks;
 using PipelinesAgentManager.Helpers;
 using PipelinesAgentManager.Models;
@@ -32,14 +33,20 @@ namespace PipelinesAgentManager
             return result;
         }
 
-        public static async Task<DestroyResult> DestroyIfNeededAsync(int pipelinesPoolId, string terraformWorkspaceId, int minutesWithoutBuilds, string message)
+        public static async Task<DestroyResult> DestroyIfNeededAsync(int pipelinesPoolId, string terraformWorkspaceId, int minutesWithoutBuilds, string message, string fileToCheck = null)
         {
             EnsureInitialization();
 
             var result = new DestroyResult();
 
             result.ThereWasAnUnfinishedDestroy = await TerraformHelper.ThereIsAnUnfinishedRun(terraformWorkspaceId, isDestroy: true);
-            result.Minutes = await PipelinesHelper.GetMinutesSinceLastActivity(pipelinesPoolId);
+
+            var fileMinutes = int.MaxValue;
+            if (fileToCheck.HasValue() && File.Exists(fileToCheck))
+            {
+                fileMinutes = (int)DateTime.UtcNow.Subtract(new FileInfo(fileToCheck).LastWriteTimeUtc).TotalMinutes;
+            }
+            result.Minutes = Math.Min(fileMinutes, await PipelinesHelper.GetMinutesSinceLastActivity(pipelinesPoolId));
             if (result.ThereWasAnUnfinishedDestroy || !result.ThereWasAnAgent || result.Minutes.Value < minutesWithoutBuilds)
             {
                 return result;

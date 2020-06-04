@@ -48,6 +48,9 @@ namespace PipelinesAgentManager.Cli
 
             [Option('m', "minutes-without-builds", Required = false, Default = 40, HelpText = "Minutes without builds")]
             public int MinutesWithoutBuilds { get; set; }
+            
+            [Option('f', "file-to-watch", Required = false, HelpText = "File to watch (in addition to pipelines info) for time to pass")]
+            public string FileToWatch { get; set; }
         }
 
         [Verb("apply", HelpText = "Applies a Terraform run")]
@@ -120,11 +123,11 @@ namespace PipelinesAgentManager.Cli
             int? defaultPoolId = null;
             foreach (var config in configsToUse)
             {
-                terraformToken = terraformToken ?? config.TerraformToken;
-                pipelinesPAT = pipelinesPAT ?? config.PipelinesPAT;
-                pipelinesOrg = pipelinesOrg ?? config.PipelinesOrg;
-                defaultWorkspaceId = defaultWorkspaceId ?? config.DefaultWorkspace;
-                defaultPoolId = defaultPoolId ?? config.DefaultPoolId;
+                terraformToken ??= config.TerraformToken;
+                pipelinesPAT ??= config.PipelinesPAT;
+                pipelinesOrg ??= config.PipelinesOrg;
+                defaultWorkspaceId ??= config.DefaultWorkspace;
+                defaultPoolId ??= config.DefaultPoolId;
             }
 
             if (terraformToken.IsNullOrEmpty() || pipelinesPAT.IsNullOrEmpty() || pipelinesOrg.IsNullOrEmpty())
@@ -199,7 +202,7 @@ namespace PipelinesAgentManager.Cli
 
         private static async Task<int> Destroy(DestroyOptions opts)
         {
-            var response = await Provisioner.DestroyIfNeededAsync(opts.PipelinesPoolId, opts.TerraformWorkspaceId, opts.MinutesWithoutBuilds, "Destroy from CLI");
+            var response = await Provisioner.DestroyIfNeededAsync(opts.PipelinesPoolId, opts.TerraformWorkspaceId, opts.MinutesWithoutBuilds, "Destroy from CLI", opts.FileToWatch);
             Console.WriteLine(response);
             return 0;
         }
